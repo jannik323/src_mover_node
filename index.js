@@ -2,39 +2,37 @@ const fetch = require('node-fetch');
 
 let category,newcategory,level,newlevel,apikey;
 let haslevel = false;
-let runcount = 100;
+let runcount = 1;
+
 let inptstate = 0;
 
 process.stdout.write("A maximum of "+ runcount+ " runs will be moved. To change this edit it in the source code.")
 process.stdout.write("\nPlease enter the category, from which you pull the runs : ");
 
 process.stdin.on("data",(data)=>{
+    data=data||"";
+    data = data.toString().replace(/[\n\r ]/g, '');
     switch(inptstate){
         case 0:
             process.stdout.write("\nPlease enter the level, from which you pull the runs (leave blank for none) : ");
             category=data;
-            inptstate++;
             break;
         case 1:
             process.stdout.write("\nPlease enter the new category, where you want to push the runs : ");
-            level=data||"";
-            inptstate++;
+            level=data;
             break;
         case 2:
             process.stdout.write("\nPlease enter the new level, where you want to push the runs (leave blank for none): ");
-            newcategory=data||"";
-            inptstate++;
+            newcategory=data;
             break;
         case 3:
             process.stdout.write("\nPlease enter your Api key (Never share or enter your Api key to sources you dont trust): ");
-            newlevel=data||"";
-            inptstate++;
+            newlevel=data;
             break;
         case 4:
-            apikey=data||"";
+            apikey=data;
             process.stdout.write("\n\ncategory: "+category+"\n"+"new category: "+newcategory+"\n"+"level: "+level+"\n"+"new level: "+newlevel+"\n"+"Api-key: "+apikey+"\n");
             process.stdout.write("\nIs this right ? (y/n): \n");
-            inptstate++;
             break;
         case 5:
             if(data=="y"){
@@ -42,11 +40,14 @@ process.stdin.on("data",(data)=>{
                 pullruns();
             }else{
                 process.stdout.write("Program has been stopped. Restart it to try again.");
-                process.exit(1);
+                process.exit(0);
             }
 
     }
+    inptstate++;
 })
+
+pullruns();
 function pullruns(){
 
     if(!(category&&newcategory)){return;}
@@ -66,13 +67,12 @@ function pullruns(){
 
 }
 
-function changecatjson(catjson){ // meow ^w^
+function changecatjson(catjson){
 
     catjson.data.forEach(run => {
-        
         run.category = newcategory;
-        (haslevel)?run.level=newlevel:delete run.level;
-        if(!run.data){delete run.data}
+        haslevel?run.level = newlevel:delete run.level;
+        if(!run.date){delete run.date}
         if(run.system.region){run.region = run.system.region}
         if(run.system.platform){run.platform = run.system.platform}
         run.verified=true;
@@ -86,11 +86,9 @@ function changecatjson(catjson){ // meow ^w^
         if(run.splits){run.splitsio = run.splits.uri}
         for(var name in run.values) {
             run.variables[name].value = run.values[name];
-            run.variables[name].type = "pre-defined"; // as of now all variables are hardcoded as pre-definied.
-                                                    // It might cause some problems if you actually have "player defined" variables in your category.
+            run.variables[name].type = "pre-defined";
         }
 
-        //delete timeeee
         delete run.values;
         delete run.submitted;
         delete run.id;
@@ -107,24 +105,26 @@ function changecatjson(catjson){ // meow ^w^
         delete run.game;
     });
 
-    
-    let index = 0;
-    let postint = setInterval(()=>{
-        console.log("posting request"+ index)
-        postnewcategories(catjson.data[index]);
-        if(index>=catjson.pagination.size-1){
-            console.log("reached end at "+ index);
-            clearInterval(postint);
-            process.exit(0);
-        }
-        index++;
-    },Math.round((catjson.pagination.size*1000)/50))
-
+    postcats(catjson); //meow? 
 }
 
+function postcats(catjson) {
+    let index = 0;
 
+    let postint = setInterval(() => {
+        console.log("posting request" + index);
+        let isfinal = false;
+        if (index >= catjson.pagination.size - 1) {
+            console.log("reached end at " + index);
+            clearInterval(postint);
+            isfinal = true;
+        }
+        postcat(catjson.data[index],isfinal);
+        index++;
+    }, Math.round((catjson.pagination.size * 1100) / 60));
+}
 
-function postnewcategories(data){
+function postcat(data,final){
 
     const Url = "https://www.speedrun.com/api/v1/runs";
     const Data = JSON.stringify({run:data});
@@ -138,7 +138,12 @@ function postnewcategories(data){
     };
 
     fetch(Url,para)
-    .then(res=>{console.log(res)})
+    .then(res=>{
+        console.log(res);
+        if(final){
+            process.exit();
+        }
+    })
     .catch(error=>{console.log(error)});
 
 
