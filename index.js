@@ -3,61 +3,104 @@ const fetch = require('node-fetch');
 let category,newcategory,level,newlevel,apikey;
 let haslevel = false;
 let runcount = 1;
+let offset = 0;
+
+let variKey,variValue;
+let hasVari = false;
 
 let inptstate = 0;
 
-process.stdout.write("A maximum of "+ runcount+ " runs will be moved. To change this edit it in the source code.")
-process.stdout.write("\nPlease enter the category, from which you pull the runs : ");
+process.stdout.write("Please enter the maximum amount of runs which you want to move : ");
 
 process.stdin.on("data",(data)=>{
     data=data||"";
     data = data.toString().replace(/[\n\r ]/g, '');
     switch(inptstate){
         case 0:
-            process.stdout.write("\nPlease enter the level, from which you pull the runs (leave blank for none) : ");
-            category=data;
+            runcount=Math.min(200,Math.max(1,new Number(data))); // min 1 max 100
+            process.stdout.write("\n(If you need to move more than 200 runs per category, you need to divide the category moving into chunks of 200.The offset is the previously moved amount of runs.)");
+            process.stdout.write("\nPlease enter the offset amount (leave blank for none) : ");
             break;
         case 1:
-            process.stdout.write("\nPlease enter the new category, where you want to push the runs : ");
-            level=data;
+            if(data!=""){
+                offset=Math.max(0,new Number(data)); // min 0
+            }
+            process.stdout.write("\nPlease enter the category, from which you pull the runs : ");
             break;
         case 2:
-            process.stdout.write("\nPlease enter the new level, where you want to push the runs (leave blank for none): ");
-            newcategory=data;
+            category=data;
+            process.stdout.write("\nPlease enter the new category, where you want to push the runs : ");
             break;
         case 3:
-            process.stdout.write("\nPlease enter your Api key (Never share or enter your Api key to sources you dont trust): ");
-            newlevel=data;
+            newcategory=data;
+            process.stdout.write("\nPlease enter variable key, from which you pull the runs (leave blank for none) : ");
             break;
         case 4:
-            apikey=data;
-            process.stdout.write("\n\ncategory: "+category+"\n"+"new category: "+newcategory+"\n"+"level: "+level+"\n"+"new level: "+newlevel+"\n"+"Api-key: "+apikey+"\n");
-            process.stdout.write("\nIs this right ? (y/n): \n");
+            if(data==""){
+                inptstate = 6;
+                variKey="";
+                variValue="";
+                process.stdout.write("\nPlease enter the level, from which you pull the runs (leave blank for none) : ");
+                return;
+            }
+            hasVari = true;
+            variKey=data;
+            process.stdout.write("\nPlease enter the variable value, from which you pull the runs (leave blank for none) : ");
             break;
         case 5:
+            variValue=data;
+            process.stdout.write("\nPlease enter the level, from which you pull the runs (leave blank for none) : ");
+            break;
+        case 6:
+            if(data==""){
+                inptstate = 8;
+                level="";
+                newlevel="";
+                process.stdout.write("\nPlease enter your Api key (Never share or enter your Api key to sources you dont trust): ");
+                return;
+            }
+            haslevel = true;
+            level=data;
+            process.stdout.write("\nPlease enter the new level, where you want to push the runs (leave blank for none): ");
+            break;
+        case 7:
+            newlevel=data;
+            process.stdout.write("\nPlease enter your Api key (Never share or enter your Api key to sources you dont trust): ");
+            break;
+        case 8:
+            apikey=data;
+            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\noffset: "+offset+"\n ");
+            process.stdout.write("\nIs this right ? (y/n): \n");
+            break;
+        case 9:
             if(data=="y"){
                 process.stdout.write("Ok, the process of moving all runs will now start.\n");
                 pullruns();
             }else{
-                process.stdout.write("Program has been stopped. Restart it to try again.");
-                process.exit(0);
+                process.stdout.write("\nOkay.....Be sure to enter it right this time...");
+                inptstate=0;
+                hasVari = false;
+                haslevel = false;
+                process.stdout.write("\nPlease enter the maximum amount of runs which you want to move : ");
+                return;
             }
 
     }
     inptstate++;
 })
 
-pullruns();
 function pullruns(){
 
-    if(!(category&&newcategory)){return;}
-    let Url;
-    if(level&&newlevel){
-         Url=`https://www.speedrun.com/api/v1/runs?category=${category}&level=${level}&max=${runcount}&status=verified`;
-         haslevel = true;
-    }else{
+    if(!(category&&newcategory)){
+        process.stdout.write("\nProgram has been stopped. You didnt fill out the category goal and or orgin , silly");
+        process.exit(1);
+    };
 
-        Url =`https://www.speedrun.com/api/v1/runs?category=${category}&max=${runcount}&status=verified `;
+    let Url;
+    if(haslevel){
+         Url=`https://www.speedrun.com/api/v1/runs?category=${category}&level=${level}&max=${runcount}&status=verified&offset=${offset}`;
+    }else{
+        Url =`https://www.speedrun.com/api/v1/runs?category=${category}&max=${runcount}&status=verified&offset=${offset}`;
     }
     
     fetch(Url)
@@ -68,6 +111,11 @@ function pullruns(){
 }
 
 function changecatjson(catjson){
+    if(hasVari){
+        catjson.data = catjson.data.filter(run=>{
+            return run.values[variKey]==variValue;
+        });
+    }
 
     catjson.data.forEach(run => {
         run.category = newcategory;
@@ -84,11 +132,12 @@ function changecatjson(catjson){
         if(run.videos){run.video = run.videos.links[0].uri}
         if(!run.comment){delete run.comment}
         if(run.splits){run.splitsio = run.splits.uri}
+        run.variables = {};
         for(var name in run.values) {
+            run.variables[name] = {};
             run.variables[name].value = run.values[name];
             run.variables[name].type = "pre-defined";
         }
-
         delete run.values;
         delete run.submitted;
         delete run.id;
@@ -105,7 +154,9 @@ function changecatjson(catjson){
         delete run.game;
     });
 
-    postcats(catjson); //meow? 
+
+    console.log(catjson.data);
+    // postcats(catjson); //meow? 
 }
 
 function postcats(catjson) {
