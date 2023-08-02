@@ -69,7 +69,7 @@ process.stdin.on("data",(data)=>{
             break;
         case 8:
             apikey=data;
-            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\noffset: "+offset+"\n ");
+            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nvariable key: "+variKey+"\nvariableValue: "+variValue+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\noffset: "+offset+"\n ");
             process.stdout.write("\nIs this right ? (y/n): \n");
             break;
         case 9:
@@ -111,6 +111,9 @@ function pullruns(){
 }
 
 function changecatjson(catjson){
+
+    process.stdout.write("\nRecieved "+ catjson.pagination.size+" runs!");
+
     if(hasVari){
         catjson.data = catjson.data.filter(run=>{
             return run.values[variKey]==variValue;
