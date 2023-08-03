@@ -15,6 +15,8 @@ let movingComplete = false;
 
 let inptstate = 0;
 
+let totalMovedRuns = 0;
+
 process.stdout.write("Please enter the maximum amount of runs which you want to move (leave blank for none) : ");
 
 process.stdin.on("data",(data)=>{
@@ -111,6 +113,7 @@ async function startMovingCategory(){
         }
     }
     console.log("finished moving the category");
+    console.log("a total of "+totalMovedRuns+ " run were moved");
     process.exit(0);
 }
 
@@ -224,6 +227,7 @@ function postcat(data){
     .then(res=>{
         if(res.status == 200){
             console.log("succesfully posted request");
+            totalMovedRuns++;
         }else{
             console.log("error while posting request : "+res.status+ " - "+ res.statusText);
         }
