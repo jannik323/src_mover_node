@@ -2,28 +2,38 @@ const fetch = require('node-fetch');
 
 let category,newcategory,level,newlevel,apikey;
 let haslevel = false;
+
 let runcount = 1;
-let offset = 0;
+let initoffset = 0;
+
+let maxruns = 1;
 
 let variKey,variValue;
 let hasVari = false;
 
+let movingComplete = false;
+
 let inptstate = 0;
 
-process.stdout.write("Please enter the maximum amount of runs which you want to move : ");
+process.stdout.write("Please enter the maximum amount of runs which you want to move (leave blank for none) : ");
 
 process.stdin.on("data",(data)=>{
     data=data||"";
     data = data.toString().replace(/[\n\r ]/g, '');
     switch(inptstate){
         case 0:
-            runcount=Math.min(200,Math.max(1,new Number(data))); // min 1 max 100
-            process.stdout.write("\n(If you need to move more than 200 runs per category, you need to divide the category moving into chunks of 200.The offset is the previously moved amount of runs.)");
+            if(data==""){
+                runcount=999999999;
+            }else{
+                runcount=Math.max(1,new Number(data)); // min 1
+            }
+            maxruns = Math.min(200,runcount);
+            process.stdout.write("\n(If you left off at a point and want to continue there)");
             process.stdout.write("\nPlease enter the offset amount (leave blank for none) : ");
             break;
         case 1:
             if(data!=""){
-                offset=Math.max(0,new Number(data)); // min 0
+                initoffset=Math.max(0,new Number(data)); // min 0
             }
             process.stdout.write("\nPlease enter the category, from which you pull the runs : ");
             break;
@@ -69,55 +79,76 @@ process.stdin.on("data",(data)=>{
             break;
         case 8:
             apikey=data;
-            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nvariable key: "+variKey+"\nvariableValue: "+variValue+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\noffset: "+offset+"\n ");
+            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nvariable key: "+variKey+"\nvariableValue: "+variValue+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\ninitial offset: "+initoffset+"\n ");
             process.stdout.write("\nIs this right ? (y/n): \n");
             break;
         case 9:
             if(data=="y"){
-                process.stdout.write("Ok, the process of moving all runs will now start.\n");
-                pullruns();
+                process.stdout.write("starting!\n");
+                if(!(category&&newcategory)){
+                    process.stdout.write("\nProgram has been stopped. You didnt fill out the category goal and or orgin , silly");
+                    process.exit(1);
+                };
+                startMovingCategory();
             }else{
                 process.stdout.write("\nOkay.....Be sure to enter it right this time...");
                 inptstate=0;
                 hasVari = false;
                 haslevel = false;
-                process.stdout.write("\nPlease enter the maximum amount of runs which you want to move : ");
+                process.stdout.write("\nPlease enter the maximum amount of runs which you want to move (leave blank for none) :");
                 return;
             }
-
     }
     inptstate++;
 })
 
-function pullruns(){
+async function startMovingCategory(){
+    for (let offset = 0; offset < runcount; offset+=200) {
+        await moveCategoryPortion(offset);        
+        console.log("finished moving runs at offset "+ (initoffset+offset));
+        if(movingComplete){
+            break;
+        }
+    }
+    console.log("finished moving the category");
+    process.exit(0);
+}
 
-    if(!(category&&newcategory)){
-        process.stdout.write("\nProgram has been stopped. You didnt fill out the category goal and or orgin , silly");
-        process.exit(1);
-    };
+function moveCategoryPortion(offset){
+    return pullruns(offset)
+    .then(res=>{
+        console.log("pulled "+res.pagination.size+ " runs with offset of "+(initoffset+offset));
+        if(res.pagination.size<200){
+            movingComplete=true;
+        }
+        return filterCatJSON(res)
+    })
+    .then(res=>{
+        console.log("filtered all data");
+        return postcats(res);
+    })
+    .catch(err=>{console.log(err)})
+}
+
+function pullruns(offset){
 
     let Url;
     if(haslevel){
-         Url=`https://www.speedrun.com/api/v1/runs?category=${category}&level=${level}&max=${runcount}&status=verified&offset=${offset}`;
+         Url=`https://www.speedrun.com/api/v1/runs?category=${category}&level=${level}&max=${maxruns}&status=verified&offset=${initoffset+offset}`;
     }else{
-        Url =`https://www.speedrun.com/api/v1/runs?category=${category}&max=${runcount}&status=verified&offset=${offset}`;
+        Url =`https://www.speedrun.com/api/v1/runs?category=${category}&max=${maxruns}&status=verified&offset=${initoffset+offset}`;
     }
     
-    fetch(Url)
-    .then(data=>{return data.json()})
-    .then(res=>{changecatjson(res)})
-    .catch(err=>{console.log(err)})
-
+    return fetch(Url)
+    .then(data=>data.json());
 }
 
-function changecatjson(catjson){
-
-    process.stdout.write("\nRecieved "+ catjson.pagination.size+" runs!");
-
+function filterCatJSON(catjson){
     if(hasVari){
         catjson.data = catjson.data.filter(run=>{
             return run.values[variKey]==variValue;
         });
+        console.log("filtered data length is now "+catjson.data.length);
     }
 
     catjson.data.forEach(run => {
@@ -132,15 +163,15 @@ function changecatjson(catjson){
         run.times.realtime_noloads =run.times.realtime_noloads_t;
         run.players.forEach(p=>{delete p.uri});
         run.emulated = run.system.emulated;
-        if(run.videos){run.video = run.videos.links[0].uri}
+        if(run.videos&&run.videos.links){run.video = run.videos.links[0].uri}
         if(!run.comment){delete run.comment}
         if(run.splits){run.splitsio = run.splits.uri}
-        run.variables = {};
-        for(var name in run.values) {
-            run.variables[name] = {};
-            run.variables[name].value = run.values[name];
-            run.variables[name].type = "pre-defined";
-        }
+        // run.variables = {};
+        // for(var name in run.values) {
+        //     run.variables[name] = {};
+        //     run.variables[name].value = run.values[name];
+        //     run.variables[name].type = "pre-defined";
+        // }
         delete run.values;
         delete run.submitted;
         delete run.id;
@@ -157,28 +188,26 @@ function changecatjson(catjson){
         delete run.game;
     });
 
-
-    console.log(catjson.data);
-    // postcats(catjson); //meow? 
+    return catjson;
 }
 
-function postcats(catjson) {
-    let index = 0;
-
-    let postint = setInterval(() => {
-        console.log("posting request" + index);
-        let isfinal = false;
-        if (index >= catjson.pagination.size - 1) {
-            console.log("reached end at " + index);
-            clearInterval(postint);
-            isfinal = true;
-        }
-        postcat(catjson.data[index],isfinal);
-        index++;
-    }, Math.round((catjson.pagination.size * 1100) / 60));
+function delay(delaytime){
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve();
+        }, delaytime);
+    });
 }
 
-function postcat(data,final){
+async function postcats(catjson) {
+    for (let i = 0; i < catjson.data.length; i++) {
+        console.log("posting request " + i + ", url : "+catjson.data[i].video);
+        await postcat(catjson.data[i]);
+        await delay(1000);
+    }
+}
+
+function postcat(data){
 
     const Url = "https://www.speedrun.com/api/v1/runs";
     const Data = JSON.stringify({run:data});
@@ -191,15 +220,16 @@ function postcat(data,final){
         method:"POST"
     };
 
-    fetch(Url,para)
+    return fetch(Url,para)
     .then(res=>{
-        console.log(res);
-        if(final){
-            process.exit();
+        if(res.status == 200){
+            console.log("succesfully posted request");
+        }else{
+            console.log("error while posting request : "+res.status+ " - "+ res.statusText);
         }
     })
-    .catch(error=>{console.log(error)});
-
-
+    .catch(error=>{
+        console.log(error);
+    });
 }
 
