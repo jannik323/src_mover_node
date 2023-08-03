@@ -11,11 +11,17 @@ let maxruns = 1;
 let variKey,variValue;
 let hasVari = false;
 
+let newvariKey,newvariValue;
+let hasnewVari = false;
+
 let movingComplete = false;
 
 let inptstate = 0;
 
 let totalMovedRuns = 0;
+console.log("\x1b[1mSpeedrun.com Category Mover\x1b[0m");
+console.log("     by \x1b[34m\x1b[4mjannik323\x1b[0m");
+console.log();
 
 process.stdout.write("Please enter the maximum amount of runs which you want to move (leave blank for none) : ");
 
@@ -52,7 +58,7 @@ process.stdin.on("data",(data)=>{
                 inptstate = 6;
                 variKey="";
                 variValue="";
-                process.stdout.write("\nPlease enter the level, from which you pull the runs (leave blank for none) : ");
+                process.stdout.write("\nPlease enter variable key, where you want to push the runs (leave blank for none) : ");
                 return;
             }
             hasVari = true;
@@ -61,11 +67,27 @@ process.stdin.on("data",(data)=>{
             break;
         case 5:
             variValue=data;
-            process.stdout.write("\nPlease enter the level, from which you pull the runs (leave blank for none) : ");
+            process.stdout.write("\nPlease enter variable key, where you want to push the runs (leave blank for none) : ");
             break;
         case 6:
             if(data==""){
                 inptstate = 8;
+                newvariKey="";
+                newvariValue="";
+                process.stdout.write("\nPlease enter the level, from which you pull the runs (leave blank for none) : ");
+                return;
+            }
+            hasnewVari = true;
+            newvariKey=data;
+            process.stdout.write("\nPlease enter the variable value, where you want to push the runs (leave blank for none) : ");
+            break;
+        case 7:
+            newvariValue=data;
+            process.stdout.write("\nPlease enter the level, from which you pull the runs (leave blank for none) : ");
+            break;
+        case 8:
+            if(data==""){
+                inptstate = 10;
                 level="";
                 newlevel="";
                 process.stdout.write("\nPlease enter your Api key (Never share or enter your Api key to sources you dont trust): ");
@@ -75,16 +97,16 @@ process.stdin.on("data",(data)=>{
             level=data;
             process.stdout.write("\nPlease enter the new level, where you want to push the runs (leave blank for none): ");
             break;
-        case 7:
+        case 9:
             newlevel=data;
             process.stdout.write("\nPlease enter your Api key (Never share or enter your Api key to sources you dont trust): ");
             break;
-        case 8:
+        case 10:
             apikey=data;
-            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nvariable key: "+variKey+"\nvariable value: "+variValue+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\ninitial offset: "+initoffset+"\n ");
+            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nvariable key: "+variKey+"\nvariable value: "+variValue+"\n  new variable key: "+newvariKey+"\n  new variable value: "+newvariValue+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\ninitial offset: "+initoffset+"\n ");
             process.stdout.write("\nIs this right ? (y/n): \n");
             break;
-        case 9:
+        case 11:
             if(data=="y"){
                 process.stdout.write("starting!\n");
                 if(!(category&&newcategory)){
@@ -97,6 +119,7 @@ process.stdin.on("data",(data)=>{
                 inptstate=0;
                 hasVari = false;
                 haslevel = false;
+                hasnewVari = false;
                 process.stdout.write("\nPlease enter the maximum amount of runs which you want to move (leave blank for none) :");
                 return;
             }
@@ -169,12 +192,12 @@ function filterCatJSON(catjson){
         if(run.videos&&run.videos.links){run.video = run.videos.links[0].uri}
         if(!run.comment){delete run.comment}
         if(run.splits){run.splitsio = run.splits.uri}
-        // run.variables = {};
-        // for(var name in run.values) {
-        //     run.variables[name] = {};
-        //     run.variables[name].value = run.values[name];
-        //     run.variables[name].type = "pre-defined";
-        // }
+        if(hasnewVari){
+            run.variables = {};
+            run.variables[newvariKey] = {};
+            run.variables[newvariKey].value = newvariValue;
+            run.variables[newvariKey].type = "pre-defined";
+        }
         delete run.values;
         delete run.submitted;
         delete run.id;
