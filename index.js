@@ -179,7 +179,6 @@ function filterCatJSON(catjson){
         delete run.videos;
         delete run.status;
         delete run.system;
-        delete run.weblink;
         delete run.splits;
         delete run.times.primary;
         delete run.times.ingame_t;
@@ -201,7 +200,8 @@ function delay(delaytime){
 
 async function postcats(catjson) {
     for (let i = 0; i < catjson.data.length; i++) {
-        console.log("posting request " + i + ", url : "+catjson.data[i].video);
+        console.log("posting request " + i + ",orgin url : "+catjson.data[i].weblink);
+        delete catjson.data[i].weblink;
         await postcat(catjson.data[i]);
         await delay(1000);
     }
