@@ -79,7 +79,7 @@ process.stdin.on("data",(data)=>{
             break;
         case 8:
             apikey=data;
-            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nvariable key: "+variKey+"\nvariableValue: "+variValue+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\ninitial offset: "+initoffset+"\n ");
+            process.stdout.write("\n\ncategory: "+category+"\n  new category: "+newcategory+"\nvariable key: "+variKey+"\nvariable value: "+variValue+"\nlevel: "+level+"\n  new level: "+newlevel+"\nApi-key: "+apikey+"\nmaximum runs moved: "+runcount+"\ninitial offset: "+initoffset+"\n ");
             process.stdout.write("\nIs this right ? (y/n): \n");
             break;
         case 9:
